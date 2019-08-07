@@ -2,15 +2,14 @@ import random
 import time
 from selenium.webdriver.common.action_chains import ActionChains
 from db import DbOperate
-from Common import Common
 from selenium import webdriver
-from time import sleep
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from readConfig import ReadConfig
 from selenium.webdriver.chrome.options import Options
 from mysqldb import connect
+import os
 
 
 class FunctionName(type):
@@ -40,16 +39,15 @@ driver.get(ReadConfig().get_root_url())
 
 class Execute(object, metaclass=FunctionName):
     def __init__(self):
-        self.common = Common()
         self.driver = driver
         self.timetemp = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())  # 存储Excel表格文件名编号
         self.db = "case"
         self.dboperate = DbOperate()
         self.windows = None
+        self.report_path = ReadConfig().save_report()
 
     # 存入数据库
     def save_to_mysql(self, parm):
-
         code = 0
         if isinstance(parm, list):
             parm.append(code)
@@ -59,15 +57,21 @@ class Execute(object, metaclass=FunctionName):
         res_code = connect(parm)
         print("存储状态", res_code)
 
+    def write_error_log(self, info):
+        error_log_path = os.path.join(self.report_path,
+                                      "error_log_{}.log".format(time.strftime("%Y-%m-%d", time.localtime())))
+        with open(error_log_path, "a", encoding="utf-8") as f:
+            f.write("{}: ".format(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())) + info + "\n")
+
     # 执行下单
     def execute_function(self, callback):
         try:
             eval("self.{}()".format(callback))
         except Exception as e:
             print("错误信息:", e)
-            self.common.write_error_log(callback)
+            self.write_error_log(callback)
             time.sleep(0.5)
-            self.common.write_error_log(str(e))
+            self.write_error_log(str(e))
 
     # 关闭窗口
     def closed_windows(self, num):
